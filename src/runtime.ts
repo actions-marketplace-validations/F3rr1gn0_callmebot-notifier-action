@@ -1,5 +1,8 @@
-// src/runtime.ts
-var postJson = async (url, body) => {
+export type ChannelName = "whatsapp" | "telegram" | "discord" | "slack" | "gchat" | "teams";
+
+type Channel = { name: ChannelName; send(message: string): Promise<void> };
+
+const postJson = async (url: string, body: unknown) => {
   const response = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -7,64 +10,71 @@ var postJson = async (url, body) => {
   });
   if (!response.ok) throw new Error(await response.text());
 };
-var whatsapp = () => ({
+
+export const whatsapp = (): Channel => ({
   name: "whatsapp",
-  async send(message2) {
+  async send(message: string) {
     const phone = process.env.PHONE?.trim();
     const apikey = process.env.APIKEY?.trim();
     if (!phone) throw new Error("PHONE is required");
     if (!apikey) throw new Error("APIKEY is required");
     const url = new URL("https://api.callmebot.com/whatsapp.php");
     url.searchParams.set("phone", phone);
-    url.searchParams.set("text", message2);
+    url.searchParams.set("text", message);
     url.searchParams.set("apikey", apikey);
     const response = await fetch(url.toString());
     if (!response.ok) throw new Error(await response.text());
   }
 });
-var telegram = () => ({
+
+export const telegram = (): Channel => ({
   name: "telegram",
-  async send(message2) {
+  async send(message: string) {
     const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
     const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
     if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN is required");
     if (!chatId) throw new Error("TELEGRAM_CHAT_ID is required");
-    await postJson(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: chatId, text: message2 });
+    await postJson(`https://api.telegram.org/bot${botToken}/sendMessage`, { chat_id: chatId, text: message });
   }
 });
-var discord = () => ({
+
+export const discord = (): Channel => ({
   name: "discord",
-  async send(message2) {
+  async send(message: string) {
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL?.trim();
     if (!webhookUrl) throw new Error("DISCORD_WEBHOOK_URL is required");
-    await postJson(webhookUrl, { content: message2 });
+    await postJson(webhookUrl, { content: message });
   }
 });
-var slack = () => ({
+
+export const slack = (): Channel => ({
   name: "slack",
-  async send(message2) {
+  async send(message: string) {
     const webhookUrl = process.env.SLACK_WEBHOOK_URL?.trim();
     if (!webhookUrl) throw new Error("SLACK_WEBHOOK_URL is required");
-    await postJson(webhookUrl, { text: message2 });
+    await postJson(webhookUrl, { text: message });
   }
 });
-var gchat = () => ({
+
+export const gchat = (): Channel => ({
   name: "gchat",
-  async send(message2) {
+  async send(message: string) {
     const webhookUrl = process.env.GCHAT_WEBHOOK_URL?.trim() ?? process.env.GOOGLE_CHAT_WEBHOOK_URL?.trim();
     if (!webhookUrl) throw new Error("GCHAT_WEBHOOK_URL is required");
-    await postJson(webhookUrl, { text: message2 });
+    await postJson(webhookUrl, { text: message });
   }
 });
-var teams = () => ({
+
+export const teams = (): Channel => ({
   name: "teams",
-  async send(message2) {
+  async send(message: string) {
     const webhookUrl = process.env.TEAMS_WEBHOOK_URL?.trim();
     if (!webhookUrl) throw new Error("TEAMS_WEBHOOK_URL is required");
-    await postJson(webhookUrl, { text: message2 });
+    await postJson(webhookUrl, { text: message });
   }
 });
-var fromEnv = () => {
+
+export const fromEnv = () => {
   if (process.env.PHONE && process.env.APIKEY) return whatsapp();
   if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) return telegram();
   if (process.env.DISCORD_WEBHOOK_URL) return discord();
@@ -73,28 +83,21 @@ var fromEnv = () => {
   if (process.env.TEAMS_WEBHOOK_URL) return teams();
   throw new Error("No channels configured");
 };
-var resolveChannel = (channel2) => {
-  if (channel2 === "whatsapp") return whatsapp();
-  if (channel2 === "telegram") return telegram();
-  if (channel2 === "discord") return discord();
-  if (channel2 === "slack") return slack();
-  if (channel2 === "gchat") return gchat();
-  if (channel2 === "teams") return teams();
+
+export const resolveChannel = (channel: "" | ChannelName) => {
+  if (channel === "whatsapp") return whatsapp();
+  if (channel === "telegram") return telegram();
+  if (channel === "discord") return discord();
+  if (channel === "slack") return slack();
+  if (channel === "gchat") return gchat();
+  if (channel === "teams") return teams();
   return fromEnv();
 };
-var notify = async ({ channels, message: message2 }) => {
-  const channel2 = channels[0];
-  if (!channel2) throw new Error("at least one channel is required");
-  await channel2.send(message2);
-  return { ok: true, deliveredBy: channel2.name, attempts: [{ channel: channel2.name, ok: true, attempt: 1 }] };
+
+export const notify = async ({ channels, message }: { channels: Channel[]; message: string }) => {
+  const channel = channels[0];
+  if (!channel) throw new Error("at least one channel is required");
+  await channel.send(message);
+  return { ok: true, deliveredBy: channel.name, attempts: [{ channel: channel.name, ok: true, attempt: 1 }] };
 };
 
-// src/index.ts
-var message = process.env.INPUT_MESSAGE?.trim();
-if (!message) throw new Error("INPUT_MESSAGE is required");
-var channel = resolveChannel(process.env.INPUT_CHANNEL?.trim() ?? "");
-await notify({
-  channels: [channel],
-  message
-});
-//# sourceMappingURL=index.js.map
